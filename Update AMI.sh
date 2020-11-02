@@ -3,7 +3,7 @@
 DATE=$(date +"%Y%m%d")
 DATE_ECHO=$(date +"%Y-%m-%d %r")
 ENV=@option.Environment@
-LAUNCH_CONFIGURATION_NAME="m5-reserved-instances-launch-config-${DATE}"
+LAUNCH_CONFIGURATION_NAME=""
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
 
 echo DATE : $DATE
@@ -27,18 +27,18 @@ function check-retry-pull {
 case $ENV in
     OCHA)
         echo "Environment : ${ENV}"
-        AUTO_SCALING_GROUP_NAME="asg-multi-az"
+        AUTO_SCALING_GROUP_NAME=""
         echo "AUTO_SCALING_GROUP_NAME : ${AUTO_SCALING_GROUP_NAME}"
-        EC2_REGION="eu-west-1"
+        EC2_REGION=""
         echo "EC2_REGION : ${EC2_REGION}"
         RSA_KEY=""
         echo "RSA KEY : ${RSA_KEY}"
         ;;
     HHI)
         echo "Environment : ${ENV}"
-        AUTO_SCALING_GROUP_NAME="asg-hhi-az"
+        AUTO_SCALING_GROUP_NAME=""
         echo "AUTO_SCALING_GROUP_NAME ${AUTO_SCALING_GROUP_NAME}"
-        EC2_REGION="us-east-1"
+        EC2_REGION=""
         echo "EC2_REGION : ${EC2_REGION}"
         RSA_KEY=""
         echo "RSA KEY : ${RSA_KEY}"
@@ -62,31 +62,8 @@ ID_AMI=$(aws ec2 describe-images \
     --output text)
 
 # Tell AWS to create new EC2 instance using current AMI
-if [[ "${ENV}" == "HHI" ]]; then
-    LAUNCH_INSTANCE=$(aws ec2 run-instances \
-        --image-id ${ID_AMI} \
-        --instance-type m5.xlarge \
-        --count 1 \
-        --subnet-id subnet-fbca608c \
-        --key-name 'HHI PROD' \
-        --security-group-ids 'sg-ddd39fab' 'sg-3ec48848' \
-        --monitoring Enabled=true \
-        --ebs-optimized \
-        --iam-instance-profile aws-hhi-role \
-        --tag-specifications 'ResourceType=instance,Tags=[{Key=AMI,Value=creating},{Key=kobo-ec2-environment-type,Value=frontend},{Key=kobo-ec2-version,Value=master},{Key=kobo-ec2-monitored-domain,Value=kf.kobotoolbox.org},{Key=kobo-env-branch,Value=hhi},{Key=kobo-ec2-use-swap,Value=1},{Key=kobo-install-version,Value=stable},{Key=Name,Value=hhi-asg-frontends}]')
-else        
-    LAUNCH_INSTANCE=$(aws ec2 run-instances \
-        --image-id ${ID_AMI} \
-        --instance-type m5.xlarge \
-        --count 1 \
-        --subnet-id subnet-fbca608c \
-        --key-name 'HHI PROD' \
-        --security-group-ids 'sg-ddd39fab' 'sg-3ec48848' \
-        --monitoring Enabled=true \
-        --ebs-optimized \
-        --iam-instance-profile aws-hhi-role \
-        --tag-specifications 'ResourceType=instance,Tags=[{Key=AMI,Value=creating},{Key=kobo-ec2-environment-type,Value=frontend},{Key=kobo-ec2-version,Value=master},{Key=kobo-ec2-monitored-domain,Value=kf.kobotoolbox.org},{Key=kobo-env-branch,Value=hhi},{Key=kobo-ec2-use-swap,Value=1},{Key=kobo-install-version,Value=stable},{Key=Name,Value=hhi-asg-frontends}]')
-fi
+
+
 # Status 
 aws ec2 describe-instances \
     --filters Name=tag-key,Values=AMI \
@@ -160,7 +137,7 @@ fi
 # Tell AWS to create a new AMI from this instance
 CREATE_IMAGE=$(aws ec2 create-image \
     --instance-id ${ID_INSTANCE}  \
-    --name "kobo.hhi.frontend.ami.${DATE}" \
+    --name "" \
     --description "Frontend AMI for ${ENV}" \
     --output text)
 
@@ -168,23 +145,15 @@ TEST_CREATE_IMAGE=$(aws ec2 describe-images \
     --image-ids ${CREATE_IMAGE})
 
 if [[ -n "TEST_CREATE_IMAGE" ]]; then
-    echo "[ ${DATE_ECHO}] Create AMI : kobo.hhi.frontend.ami.${DATE}"
+    echo "[ ${DATE_ECHO}] Create AMI : "
 else
-    echo "[ ${DATE_ECHO}] Error - Create AMI : kobo.hhi.frontend.ami.${DATE}"
+    echo "[ ${DATE_ECHO}] Error - Create AMI : "
 fi
 
 if [LE DOCKER EST OK VIA HTTP OU DOCKER]; then 
 
     # Copy the current ASG Launch Configuration, then modify it to use the new AMI
-    aws autoscaling create-launch-configuration \
-        --launch-configuration-name ${LAUNCH_CONFIGURATION_NAME} \
-        --key-name 'HHI PROD' \
-        --instance-id ${ID_INSTANCE} \
-        --security-groups sg-3ec48848, sg-ddd39fab \
-        --instance-type m5.xlarge \
-        --instance-monitoring Enabled=true \
-        --ebs-optimized \
-        --iam-instance-profile aws-hhi-role
+
 
     TEST_LAUNCH_CONF=$(aws autoscaling describe-launch-configurations \
         --launch-configuration-names ${LAUNCH_CONFIGURATION_NAME} \
