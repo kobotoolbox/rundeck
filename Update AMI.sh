@@ -198,7 +198,7 @@ check-action "${RESULT_OK}" "${RESULT_NOK}"
 sleep 15
 
 # Copy file
-rsync -ap --progress -e "ssh -o StrictHostKeyChecking=no -i /var/lib/rundeck/.ssh/hhiprod.pem" /var/lib/rundeck/.${ENV}-run.conf ubuntu@${PUBLIC_DNS_INSTANCE}:/home/ubuntu/kobo-install/.run.conf > /dev/null 2>&1
+rsync -ap --progress -e "ssh -o StrictHostKeyChecking=no -i /var/lib/rundeck/.ssh/${ENV}prod.pem" /var/lib/rundeck/.${ENV}-run.conf ubuntu@${PUBLIC_DNS_INSTANCE}:/home/ubuntu/kobo-install/.run.conf > /dev/null 2>&1
 
 RESULT_OK="Copy file run.conf OK"
 RESULT_NOK="Error - Copy file run.conf"
