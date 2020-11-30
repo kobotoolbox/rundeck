@@ -308,10 +308,10 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
     $AWS ec2 terminate-instances --region ${EC2_REGION} --instance-ids ${ID_INSTANCE}
     
     TEST_DELETE_INSTANCE=$($AWS ec2 describe-instances \
-    --region ${EC2_REGION} \
-    --instance-ids ${ID_INSTANCE} \
-    --query Reservations[].Instances[].State.Name \
-    --output text)
+        --region ${EC2_REGION} \
+        --instance-ids ${ID_INSTANCE} \
+        --query Reservations[].Instances[].State.Name \
+        --output text)
     
     if [[ "${TEST_DELETE_INSTANCE}" == "shutting-down" ]]; then
         echo "[ ${DATE_ECHO} ] Instance : ${ID_INSTANCE} deleted"
