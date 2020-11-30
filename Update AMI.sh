@@ -91,7 +91,7 @@ echo "[ $DATE_ECHO ] Old ID_AMI : $OLD_ID_AMI"
 
 # Tell AWS to create new EC2 instance using current AMI
 LAUNCH_INSTANCE=$($AWS ec2 run-instances \
-        --image-id ${AMI_UBUNTU} \
+        --image-id ${OLD_ID_AMI} \
         --instance-type ${INSTANCE_TYPE} \
         --region ${EC2_REGION} \
         --count 1 \
@@ -164,51 +164,6 @@ check-action "${RESULT_OK}" "${RESULT_NOK}"
 
 sleep 90
 
-# Install Docker 
-$SSH "sudo apt install docker.io docker-compose --yes" > /dev/null 2>&1
-
-RESULT_OK="APT install Docker Ok"
-RESULT_NOK="Error - APT install Docker"
-check-action "${RESULT_OK}" "${RESULT_NOK}"
-
-sleep 30
-
-# Config Docker 
-$SSH "sudo usermod -aG docker ubuntu" > /dev/null 2>&1
-
-RESULT_OK="Config Docker Ok"
-RESULT_NOK="Error - Config Docker"
-check-action "${RESULT_OK}" "${RESULT_NOK}"
-
-# Github clone 
-$SSH "git clone --branch stable https://github.com/kobotoolbox/kobo-install.git" > /dev/null 2>&1
-
-RESULT_OK="Clone Github kobo-install Ok"
-RESULT_NOK="Error - Clone Github kobo-install"
-check-action "${RESULT_OK}" "${RESULT_NOK}"
-
-sleep 15
-
-$SSH "git clone https://github.com/kobotoolbox/kobo-docker.git" > /dev/null 2>&1
-
-RESULT_OK="Clone Github kobo-docker Ok"
-RESULT_NOK="Error - Clone Github kobo-docker"
-check-action "${RESULT_OK}" "${RESULT_NOK}"
-
-sleep 15
-
-# Copy file
-rsync -ap --progress -e "ssh -o StrictHostKeyChecking=no -i /var/lib/rundeck/.ssh/${ENV}prod.pem" /var/lib/rundeck/.${ENV}-run.conf ubuntu@${PUBLIC_DNS_INSTANCE}:/home/ubuntu/kobo-install/.run.conf > /dev/null 2>&1
-
-RESULT_OK="Copy file run.conf OK"
-RESULT_NOK="Error - Copy file run.conf"
-check-action "${RESULT_OK}" "${RESULT_NOK}"
-
-sleep 10
-
-# Install Kobo before update
-
-
 # Update kobo-install and kobo-docker (./run.py --auto-update <kobo-install-tag|stable>)
 $SSH "python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}"
 
@@ -216,15 +171,18 @@ RESULT_OK="Update Kobo Ok"
 RESULT_NOK="Error - Update Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
-# Force recreate Docker frontend
-$SSH "python3 /home/ubuntu/kobo-install/run.py -cf up --force-recreate -d kobocat kpi enketo_express nginx" > /dev/null 2>&1
-
-RESULT_OK="Force recreate Kobo Ok"
-RESULT_NOK="Error - Force recreate Kobo"
-check-action "${RESULT_OK}" "${RESULT_NOK}"
-
 echo "[ ${DATE_ECHO} ] Force recreate Kobo..."
 sleep 30
+
+DOCKER_IMAGE_NGINX=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_nginx_1")
+DOCKER_IMAGE_KPI=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kpi_1")
+DOCKER_IMAGE_KC=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kobocat_1")
+DOCKER_IMAGE_EE=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_enketo_express_1")
+
+echo "[ ${DATE_ECHO} ] Docker Image Nginx : ${DOCKER_IMAGE_NGINX}"
+echo "[ ${DATE_ECHO} ] Docker Image Kpi : ${DOCKER_IMAGE_KPI}"
+echo "[ ${DATE_ECHO} ] Docker Image Kobocat : ${DOCKER_IMAGE_KC}"
+echo "[ ${DATE_ECHO} ] Docker Image Enketo : ${DOCKER_IMAGE_EE}"
 
 TEST_DOCKER_NGINX=$($SSH "docker inspect -f '{{.State.Running}}' kobofe_nginx_1")
 TEST_DOCKER_KC=$($SSH "docker inspect -f '{{.State.Running}}' kobofe_kobocat_1")
@@ -260,7 +218,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [ ${TEST_DOCKER_KC} == "true" ]] && [
         echo "[ ${DATE_ECHO} ] Error - Create AMI : ${TEST_CREATE_IMAGE}"
         exit 
     fi
- 
+    
     # Copy the current ASG Launch Configuration, then modify it to use the new AMI
     CREATE_LAUNCH_CONFIGURATION=$($AWS autoscaling create-launch-configuration \
         --launch-configuration-name ${LAUNCH_CONFIGURATION_NAME} \
@@ -276,9 +234,9 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [ ${TEST_DOCKER_KC} == "true" ]] && [
   
     #Test ASG
     if [[ -n "$CREATE_LAUNCH_CONFIGURATION" ]]; then
-        echo "[ ${DATE_ECHO} ] Create ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
+        echo "[ ${DATE_ECHO}] Create ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
     else 
-        echo "[ ${DATE_ECHO} ] Error - Create ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
+        echo "[ ${DATE_ECHO}] Error - Create ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
         exit
     fi
 
@@ -293,9 +251,9 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [ ${TEST_DOCKER_KC} == "true" ]] && [
         --output text)
 
     if [[ "${TEST_UPDATE_AUTO_SCALING}" == "${LAUNCH_CONFIGURATION_NAME}" ]]; then
-        echo "[ ${DATE_ECHO} ] Apply new ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
+        echo "[ ${DATE_ECHO}] Apply new ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
     else 
-        echo "[ ${DATE_ECHO} ] Error - Apply new ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
+        echo "[ ${DATE_ECHO}] Error - Apply new ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
         exit
     fi
 
@@ -315,9 +273,9 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [ ${TEST_DOCKER_KC} == "true" ]] && [
         --output text)
 
     if [[ "${TEST_UPDATE_AMI_TAG}" == "latest" ]]; then
-        echo "[ ${DATE_ECHO} ] Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
+        echo "[ ${DATE_ECHO}] Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
     else 
-        echo "[ ${DATE_ECHO} ] Error - Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
+        echo "[ ${DATE_ECHO}] Error - Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
         exit
     fi
 
@@ -330,9 +288,9 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [ ${TEST_DOCKER_KC} == "true" ]] && [
     --output text)
     
     if [[ "${TEST_DELETE_INSTANCE}" == "terminated" ]]; then
-        echo "[ ${DATE_ECHO} ] Instance : ${ID_INSTANCE} deleted"
+        echo "[ ${DATE_ECHO}] Instance : ${ID_INSTANCE} deleted"
     else 
-        echo "[ ${DATE_ECHO} ] Error - Instance : ${ID_INSTANCE} deleted"
+        echo "[ ${DATE_ECHO}] Error - Instance : ${ID_INSTANCE} deleted"
         exit
     fi 
     
@@ -344,10 +302,11 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [ ${TEST_DOCKER_KC} == "true" ]] && [
         --query Images[].ImageId \
         --output text)
     if [[ "${TEST_DELETE_AMI}" != "$OLD_ID_AMI" ]]; then
-        echo "[ ${DATE_ECHO} ] AMI : ${OLD_ID_AMI} deleted"
+        echo "[ ${DATE_ECHO}] AMI : ${OLD_ID_AMI} deleted"
     else
-        echo "[ ${DATE_ECHO} ] Error - AMI : ${OLD_ID_AMI} deleted" 
+        echo "[ ${DATE_ECHO}] Error - AMI : ${OLD_ID_AMI} deleted" 
     fi
+    
     
 else
     echo "[ ${DATE_ECHO} ] Error - Docker"
