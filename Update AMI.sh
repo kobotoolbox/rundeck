@@ -18,21 +18,12 @@ echo VERSION : $VERSION
 echo LAUNCH_CONFIGURATION_NAME : $LAUNCH_CONFIGURATION_NAME
 echo AMI_UBUNTU : $AMI_UBUNTU
 
-function check-retry-pull {
-    cd ${KOBO_INSTALL_DIR}
-    # Pull new images
-    COMPOSE_HTTP_TIMEOUT=200 python3 run.py ${1} pull > .log-pull 2>&1
-
-    # Check if pull failed
-    if [[ ! -z $(grep "error" .log-pull) ]]; then
-        echo "[ $(date) ] Failed update ${2} containers..."
-    fi
-}
-
 function check-action {
     if [[ $(echo $?) == 0 ]]; then
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] ${1}"
     else
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] ${2}"
         exit
     fi
@@ -88,6 +79,7 @@ OLD_ID_AMI=$($AWS ec2 describe-images \
     --filters 'Name=tag:version,Values=latest' \
     --query 'Images[].ImageId' \
     --output text)
+DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ $DATE_ECHO ] Old ID_AMI : $OLD_ID_AMI"
 
 # Tell AWS to create new EC2 instance using current AMI
@@ -104,9 +96,9 @@ LAUNCH_INSTANCE=$($AWS ec2 run-instances \
         --ebs-optimized \
         --iam-instance-profile Name="${IAM_ROLE}" \
         --tag-specifications 'ResourceType=instance,Tags=[{Key=AMI,Value=creating},{Key=kobo-ec2-environment-type,Value=frontend},{Key=kobo-ec2-version,Value=master},{Key=kobo-ec2-monitored-domain,Value='${KOBO_EC2_MONITORED_DOMAIN}'},{Key=kobo-env-branch,Value='${ENV}'},{Key=kobo-ec2-use-swap,Value=1},{Key=kobo-install-version,Value='${VERSION}'},{Key=Name,Value='${ENV}'-asg-frontends}]')
+DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] EC2 instance is in creation..."
-sleep 60
-
+    
 # Status 
 $AWS ec2 describe-instances \
     --region ${EC2_REGION} \
@@ -117,13 +109,23 @@ $AWS ec2 describe-instances \
 # Get ID of new instance 
 ID_INSTANCE=$($AWS ec2 describe-instances \
     --region ${EC2_REGION} \
-    --filters "Name=tag-key,Values=AMI" "Name=instance-state-name,Values=running" \
+    --filters "Name=tag-key,Values=AMI" \
     --query 'Reservations[*].Instances[*].InstanceId' \
     --output text | tail -n1 )
 
 RESULT_OK="New ID_INSTANCE : $ID_INSTANCE"
 RESULT_NOK="Error - ID Instance empty"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
+
+# Wait instance creation 
+while [ "$($AWS ec2 describe-instances --region ${EC2_REGION} --instance-ids ${ID_INSTANCE} --query 'Reservations[].Instances[].State.Name' --output text)" != "running" ]; do
+    DATE_ECHO=$(date +"%Y-%m-%d %r")
+    echo "[ ${DATE_ECHO} ] Create instance ${ID_INSTANCE} is in progress..."
+    sleep 10
+done
+
+DATE_ECHO=$(date +"%Y-%m-%d %r")
+echo "[ ${DATE_ECHO} ] Create instance ${ID_INSTANCE} Ok"
 
 # Get public IP of new instance
 PUBLIC_DNS_INSTANCE=$($AWS ec2 describe-instances \
@@ -133,56 +135,47 @@ PUBLIC_DNS_INSTANCE=$($AWS ec2 describe-instances \
     --output text | tail -n1)
 
 if [[ -n "$PUBLIC_DNS_INSTANCE" ]]; then
+    DATE_ECHO=$(date +"%Y-%m-%d %r")
     echo "[ ${DATE_ECHO} ] New PUBLIC_DNS_INSTANCE : $PUBLIC_DNS_INSTANCE"
     SSH="ssh -o StrictHostKeyChecking=no -i /var/lib/rundeck/.ssh/hhiprod.pem ubuntu@${PUBLIC_DNS_INSTANCE}"
-else
+else    
+    DATE_ECHO=$(date +"%Y-%m-%d %r")
     echo "[ ${DATE_ECHO} ] Error - Public dns Instance empty"
     exit    
 fi
 
 # SSH into instance
 $SSH 'exit' > /dev/null 2>&1 
-
 RESULT_OK="Connection SSH Ok"
 RESULT_NOK="Error - Connection SSH"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
-echo "[ ${DATE_ECHO} ] APT update..."
-
 # Use apt-get, etc. to update operating system 
 $SSH "sudo apt update" > /dev/null 2>&1
-
 RESULT_OK="APT update Ok"
 RESULT_NOK="Error - APT update"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
-sleep 30
-
-echo "[ ${DATE_ECHO} ] APT upgrade..."
-
 # Use apt-get, etc. to update operating system 
 $SSH "sudo apt upgrade --yes" > /dev/null 2>&1
-
 RESULT_OK="APT upgrade Ok"
 RESULT_NOK="Error - APT upgrade"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
-sleep 90
-
+# Update kobo-install and kobo-docker (./run.py --auto-update <kobo-install-tag|stable>)
+DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Update Kobo..."
 
-# Update kobo-install and kobo-docker (./run.py --auto-update <kobo-install-tag|stable>)
-$SSH "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" > /dev/null 2>&1
-
+$SSH "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" #> /dev/null 2>&1
 RESULT_OK="Update Kobo Ok"
 RESULT_NOK="Error - Update Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
+# Force recreate Docker frontend
+DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Force recreate Kobo..."
 
-# Force recreate Docker frontend
-$SSH "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py -cf up --force-recreate -d kobocat kpi enketo_express nginx" > /dev/null 2>&1
-
+$SSH "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py -cf up --force-recreate -d kobocat kpi enketo_express nginx" #> /dev/null 2>&1
 RESULT_OK="Force recreate Kobo Ok"
 RESULT_NOK="Error - Force recreate Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
@@ -194,6 +187,7 @@ DOCKER_IMAGE_KPI=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kpi_1" > /
 DOCKER_IMAGE_KC=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kobocat_1" > /dev/null 2>&1)
 DOCKER_IMAGE_EE=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_enketo_express_1" > /dev/null 2>&1)
 
+DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Docker Image Nginx : ${DOCKER_IMAGE_NGINX}"
 echo "[ ${DATE_ECHO} ] Docker Image Kpi : ${DOCKER_IMAGE_KPI}"
 echo "[ ${DATE_ECHO} ] Docker Image Kobocat : ${DOCKER_IMAGE_KC}"
@@ -205,6 +199,7 @@ TEST_DOCKER_KPI=$($SSH "docker inspect -f '{{.State.Running}}' kobofe_kpi_1" | g
 TEST_DOCKER_EE=$($SSH "docker inspect -f '{{.State.Running}}' kobofe_enketo_express_1" | grep true)
 
 if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && [[ ${TEST_DOCKER_KPI} == "true" ]] && [[ ${TEST_DOCKER_EE} == "true" ]]; then
+    DATE_ECHO=$(date +"%Y-%m-%d %r")
     echo "[ ${DATE_ECHO} ] Docker UP"
     #AWS
     CREATE_IMAGE=$($AWS ec2 create-image \
@@ -217,6 +212,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
     
     # Wait AMI creation 
     while [ "$($AWS ec2 describe-images --region ${EC2_REGION} --image-ids ${ID_AMI} --query Images[].State --output text)" = "pending" ]; do
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] AMI ${ID_AMI} is in progress..."
         sleep 30
     done
@@ -228,8 +224,10 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
     --output text)
     
     if [[ -n "${TEST_CREATE_IMAGE}" ]]; then
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Create AMI : ${TEST_CREATE_IMAGE}"
     else
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Error - Create AMI : ${TEST_CREATE_IMAGE}"
         exit 
     fi
@@ -255,8 +253,10 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
         
     #Test ASG
     if [[ "${LAUNCH_CONFIGURATION_NAME}" == "${TEST_LAUNCH_CONFIGURATION}" ]]; then
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Create ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
-    else 
+    else
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Error - Create ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
         exit
     fi
@@ -274,8 +274,10 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
         --output text)
 
     if [[ "${TEST_UPDATE_AUTO_SCALING}" == "${LAUNCH_CONFIGURATION_NAME}" ]]; then
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Apply new ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
-    else 
+    else
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Error - Apply new ASG launch configuration : ${LAUNCH_CONFIGURATION_NAME}"
         exit
     fi
@@ -298,8 +300,10 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
         --output text)
 
     if [[ "${TEST_UPDATE_AMI_TAG}" == "latest" ]]; then
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
-    else 
+    else
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Error - Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
         exit
     fi
@@ -314,8 +318,10 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
         --output text)
     
     if [[ "${TEST_DELETE_INSTANCE}" == "shutting-down" ]]; then
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Instance : ${ID_INSTANCE} deleted"
-    else 
+    else
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Error - Instance : ${ID_INSTANCE} deleted"
         exit
     fi 
@@ -327,12 +333,16 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
         --image-ids $OLD_ID_AMI \
         --query Images[].ImageId \
         --output text)
+    
     if [[ "${TEST_DELETE_AMI}" != "$OLD_ID_AMI" ]]; then
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] AMI : ${OLD_ID_AMI} deleted"
     else
+        DATE_ECHO=$(date +"%Y-%m-%d %r")
         echo "[ ${DATE_ECHO} ] Error - AMI : ${OLD_ID_AMI} deleted" 
     fi
 else
+    DATE_ECHO=$(date +"%Y-%m-%d %r")
     echo "[ ${DATE_ECHO} ] Error - Docker"
     exit
 fi
