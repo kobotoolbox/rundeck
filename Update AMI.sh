@@ -43,6 +43,8 @@ case $ENV in
         echo "SECURITY_GROUP_SSH : ${SECURITY_GROUP_RUNDECK_SSH}"
         echo "IAM_ROLE : ${IAM_ROLE}"
         echo "IAM_ROLE : ${KOBO_EC2_MONITORED_DOMAIN}"
+        echo "KEY_SSH : ${KEY_SSH}"
+        echo "PRIMARY_DNS_FRONTEND : ${PRIMARY_DNS_FRONTEND}"
         ;;
     hhi)
         source /home/ubuntu/${ENV}-config
@@ -57,6 +59,8 @@ case $ENV in
         echo "SECURITY_GROUP_SSH : ${SECURITY_GROUP_RUNDECK_SSH}"
         echo "IAM_ROLE : ${IAM_ROLE}"
         echo "IAM_ROLE : ${KOBO_EC2_MONITORED_DOMAIN}"
+        echo "KEY_SSH : ${KEY_SSH}"
+        echo "PRIMARY_DNS_FRONTEND : ${PRIMARY_DNS_FRONTEND}"
         ;;
     *)
 esac
@@ -137,7 +141,7 @@ PUBLIC_DNS_INSTANCE=$($AWS ec2 describe-instances \
 if [[ -n "$PUBLIC_DNS_INSTANCE" ]]; then
     DATE_ECHO=$(date +"%Y-%m-%d %r")
     echo "[ ${DATE_ECHO} ] New PUBLIC_DNS_INSTANCE : $PUBLIC_DNS_INSTANCE"
-    SSH="ssh -o StrictHostKeyChecking=no -i /var/lib/rundeck/.ssh/hhiprod.pem ubuntu@${PUBLIC_DNS_INSTANCE}"
+    SSH="ssh -o StrictHostKeyChecking=no -i $KEY_SSH ubuntu@${PUBLIC_DNS_INSTANCE}"
 else    
     DATE_ECHO=$(date +"%Y-%m-%d %r")
     echo "[ ${DATE_ECHO} ] Error - Public dns Instance empty"
@@ -175,7 +179,7 @@ check-action "${RESULT_OK}" "${RESULT_NOK}"
 DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Force recreate Kobo..."
 
-$SSH "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py -cf up --force-recreate -d kobocat kpi enketo_express nginx" #> /dev/null 2>&1
+$SSH "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py -cf up --force-recreate" #> /dev/null 2>&1
 RESULT_OK="Force recreate Kobo Ok"
 RESULT_NOK="Error - Force recreate Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
@@ -307,6 +311,25 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
         echo "[ ${DATE_ECHO} ] Error - Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
         exit
     fi
+    
+    # Update kobo-install and kobo-docker on frontend primary (./run.py --auto-update <kobo-install-tag|stable>)
+    DATE_ECHO=$(date +"%Y-%m-%d %r")
+    echo "[ ${DATE_ECHO} ] Update Kobo on frontend primary..."
+    
+    SSH_FRONTEND_PRIMARY="ssh -o StrictHostKeyChecking=no -i $KEY_SSH ubuntu@${PRIMARY_DNS_FRONTEND}"
+    $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" #> /dev/null 2>&1
+    RESULT_OK="Update Kobo Ok"
+    RESULT_NOK="Error - Update Kobo"
+    check-action "${RESULT_OK}" "${RESULT_NOK}"
+    
+    # Force recreate Docker frontend primary
+    DATE_ECHO=$(date +"%Y-%m-%d %r")
+    echo "[ ${DATE_ECHO} ] Force recreate Kobo on frontend primary..."
+    
+    $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py -cf up --force-recreate" #> /dev/null 2>&1
+    RESULT_OK="Force recreate Kobo Ok"
+    RESULT_NOK="Error - Force recreate Kobo"
+    check-action "${RESULT_OK}" "${RESULT_NOK}"
 
     # Delete EC2 instance 
     $AWS ec2 terminate-instances --region ${EC2_REGION} --instance-ids ${ID_INSTANCE}
