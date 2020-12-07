@@ -350,20 +350,20 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
     fi 
     
     # Delete old AMI
-    $AWS ec2 deregister-image --image-id $OLD_ID_AMI
-    TEST_DELETE_AMI=$($AWS ec2 describe-images \
-        --region ${EC2_REGION} \
-        --image-ids $OLD_ID_AMI \
-        --query Images[].ImageId \
-        --output text)
+    #$AWS ec2 deregister-image --image-id $OLD_ID_AMI
+    #TEST_DELETE_AMI=$($AWS ec2 describe-images \
+    #    --region ${EC2_REGION} \
+    #    --image-ids $OLD_ID_AMI \
+    #    --query Images[].ImageId \
+    #    --output text)
     
-    if [[ "${TEST_DELETE_AMI}" != "$OLD_ID_AMI" ]]; then
-        DATE_ECHO=$(date +"%Y-%m-%d %r")
-        echo "[ ${DATE_ECHO} ] AMI : ${OLD_ID_AMI} deleted"
-    else
-        DATE_ECHO=$(date +"%Y-%m-%d %r")
-        echo "[ ${DATE_ECHO} ] Error - AMI : ${OLD_ID_AMI} deleted" 
-    fi
+    #if [[ "${TEST_DELETE_AMI}" != "$OLD_ID_AMI" ]]; then
+    #    DATE_ECHO=$(date +"%Y-%m-%d %r")
+    #    echo "[ ${DATE_ECHO} ] AMI : ${OLD_ID_AMI} deleted"
+    #else
+    #    DATE_ECHO=$(date +"%Y-%m-%d %r")
+    #    echo "[ ${DATE_ECHO} ] Error - AMI : ${OLD_ID_AMI} deleted" 
+    #fi
 else
     DATE_ECHO=$(date +"%Y-%m-%d %r")
     echo "[ ${DATE_ECHO} ] Error - Docker"
