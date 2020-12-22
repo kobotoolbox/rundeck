@@ -170,7 +170,7 @@ check-action "${RESULT_OK}" "${RESULT_NOK}"
 DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Update Kobo..."
 
-$SSH "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" #> /dev/null 2>&1
+$SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" 
 RESULT_OK="Update Kobo Ok"
 RESULT_NOK="Error - Update Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
@@ -179,17 +179,17 @@ check-action "${RESULT_OK}" "${RESULT_NOK}"
 DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Force recreate Kobo..."
 
-$SSH "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py -cf up --force-recreate" #> /dev/null 2>&1
+$SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" 
 RESULT_OK="Force recreate Kobo Ok"
 RESULT_NOK="Error - Force recreate Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
 sleep 30
 
-DOCKER_IMAGE_NGINX=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_nginx_1" > /dev/null 2>&1)
-DOCKER_IMAGE_KPI=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kpi_1" > /dev/null 2>&1)
-DOCKER_IMAGE_KC=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kobocat_1" > /dev/null 2>&1)
-DOCKER_IMAGE_EE=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_enketo_express_1" > /dev/null 2>&1)
+DOCKER_IMAGE_NGINX=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_nginx_1")
+DOCKER_IMAGE_KPI=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kpi_1")
+DOCKER_IMAGE_KC=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kobocat_1")
+DOCKER_IMAGE_EE=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_enketo_express_1")
 
 DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Docker Image Nginx : ${DOCKER_IMAGE_NGINX}"
