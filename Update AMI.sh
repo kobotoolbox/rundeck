@@ -165,23 +165,24 @@ RESULT_OK="APT upgrade Ok"
 RESULT_NOK="Error - APT upgrade"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
-# Update kobo-install and kobo-docker (./run.py --auto-update <kobo-install-tag|stable>)
-DATE_ECHO=$(date +"%Y-%m-%d %r")
-echo "[ ${DATE_ECHO} ] Update Kobo..."
-
-$SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" 
+$SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}"
+$SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py -cf pull"  
 RESULT_OK="Update Kobo Ok"
 RESULT_NOK="Error - Update Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
-# Force recreate Docker frontend
+# Update kobo-install and kobo-docker (./run.py --auto-update <kobo-install-tag|stable>)
 DATE_ECHO=$(date +"%Y-%m-%d %r")
-echo "[ ${DATE_ECHO} ] Force recreate Kobo..."
+echo "[ ${DATE_ECHO} ] Update Kobo..."
 
 $SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" 
 RESULT_OK="Force recreate Kobo Ok"
 RESULT_NOK="Error - Force recreate Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
+
+# Force recreate Docker frontend
+DATE_ECHO=$(date +"%Y-%m-%d %r")
+echo "[ ${DATE_ECHO} ] Force recreate Kobo..."
 
 sleep 30
 
@@ -295,7 +296,8 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
         --region ${EC2_REGION} \
         --resources ${ID_AMI} \
         --tags Key=version,Value=latest
-
+    
+    # Test - Change tag AMI
     TEST_UPDATE_AMI_TAG=$($AWS ec2 describe-images \
         --region ${EC2_REGION} \
         --image-ids ${ID_AMI} \
@@ -311,6 +313,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
         exit
     fi
     
+    # Update frontend primary only or all    
     case $ENV in
         frontend_primary_only)
             # Update kobo-install and kobo-docker on frontend primary (./run.py --auto-update <kobo-install-tag|stable>)
@@ -318,7 +321,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
             echo "[ ${DATE_ECHO} ] Update Kobo on frontend primary..."
             
             SSH_FRONTEND_PRIMARY="ssh -o StrictHostKeyChecking=no -i $KEY_SSH ubuntu@${PRIMARY_DNS_FRONTEND}"
-            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" #> /dev/null 2>&1
+            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" #> /dev/null 2>&1
             RESULT_OK="Update Kobo Ok"
             RESULT_NOK="Error - Update Kobo"
             check-action "${RESULT_OK}" "${RESULT_NOK}"
@@ -327,13 +330,45 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
             DATE_ECHO=$(date +"%Y-%m-%d %r")
             echo "[ ${DATE_ECHO} ] Force recreate Kobo on frontend primary..."
             
-            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} \&\& python3 ${KOBO_INSTALL_DIR}run.py -cf up --force-recreate" #> /dev/null 2>&1
+            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" #> /dev/null 2>&1
             RESULT_OK="Force recreate Kobo Ok"
             RESULT_NOK="Error - Force recreate Kobo"
             check-action "${RESULT_OK}" "${RESULT_NOK}"
             ;;
-        frontend_primary_all)
+        frontend_all)
+            $IP_FRONTEND_ALL=$($AWS --region ${EC2_REGION} 
+                ec2 describe-instances 
+                --filters "Name=tag:Name,Values=*rontend*" "Name=network-interface.association.public-ip,Values=*" 
+                --query "Reservations[].Instances[].[PublicIpAddress]" | jq ".[][0]" 
+                --raw-output)
 
+            $DNS_FRONTEND_ALL=$($AWS --region ${EC2_REGION} 
+                ec2 describe-instances 
+                --filters "Name=tag:Name,Values=*rontend*" "Name=network-interface.association.public-ip,Values=*")
+
+            for line in $DNS_FRONTEND_ALL
+                # Get DNS  
+                $DNS_FRONTEND=$(echo $DNS_FRONTEND_ALL | jq ".Reservations[].Instances[] | select(.PublicIpAddress==\"${line}\") | .PublicDnsName" --raw-output)
+
+                # Update kobo-install and kobo-docker on frontend primary (./run.py --auto-update <kobo-install-tag|stable>)
+                DATE_ECHO=$(date +"%Y-%m-%d %r")
+                echo "[ ${DATE_ECHO} ] Update Kobo on ${DNS_FRONTEND}..."
+                
+                SSH_FRONTEND="ssh -o StrictHostKeyChecking=no -i ${KEY_SSH} ubuntu@${DNS_FRONTEND}"
+                $SSH_FRONTEND "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}"
+                RESULT_OK="Update Kobo Ok"
+                RESULT_NOK="Error - Update Kobo"
+                check-action "${RESULT_OK}" "${RESULT_NOK}"
+                
+                # Force recreate Docker frontend primary
+                DATE_ECHO=$(date +"%Y-%m-%d %r")
+                echo "[ ${DATE_ECHO} ] Force recreate Kobo on ${DNS_FRONTEND}..."
+                
+                $SSH_FRONTEND "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" 
+                RESULT_OK="Force recreate Kobo Ok"
+                RESULT_NOK="Error - Force recreate Kobo"
+                check-action "${RESULT_OK}" "${RESULT_NOK}"
+            done
             ;;
         *)
     esac
