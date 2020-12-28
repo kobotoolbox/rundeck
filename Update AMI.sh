@@ -7,7 +7,6 @@ DATE_ECHO=$(date +"%Y-%m-%d %r")
 ENV=@option.Environment@
 VERSION=@option.Version@
 LAUNCH_CONFIGURATION_NAME="m5-reserved-instances-launch-config-${DATE}"
-AMI_UBUNTU="ami-0885b1f6bd170450c"
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install/"
 
 
