@@ -5,18 +5,19 @@ AWS="/usr/local/bin/aws"
 DATE=$(date +"%Y%m%d")
 DATE_ECHO=$(date +"%Y-%m-%d %r")
 ENV=@option.Environment@
+ENV_FRONTEND=@option.Environment_frontend@
 VERSION=@option.Version@
 LAUNCH_CONFIGURATION_NAME="m5-reserved-instances-launch-config-${DATE}"
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install/"
 KOBO_INSTALL_VERSION="$VERSION"
 
 
-echo DATE : $DATE
-echo DATE_ECHO : $DATE_ECHO
-echo ENV : $ENV
-echo VERSION : $VERSION
-echo LAUNCH_CONFIGURATION_NAME : $LAUNCH_CONFIGURATION_NAME
-echo AMI_UBUNTU : $AMI_UBUNTU
+echo DATE:$DATE
+echo DATE_ECHO:$DATE_ECHO
+echo ENV:$ENV
+echo VERSION:$VERSION
+echo LAUNCH_CONFIGURATION_NAME:$LAUNCH_CONFIGURATION_NAME
+echo AMI_UBUNTU:$AMI_UBUNTU
 
 function check-action {
     if [[ $(echo $?) == 0 ]]; then
@@ -325,6 +326,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
             
             SSH_FRONTEND_PRIMARY="ssh -o StrictHostKeyChecking=no -i $KEY_SSH ubuntu@${PRIMARY_DNS_FRONTEND}"
             $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}"
+            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} && COMPOSE_HTTP_TIMEOUT=500 python3 ${KOBO_INSTALL_DIR}run.py -cf pull" > /dev/null 2>&1
             RESULT_OK="Update Kobo Ok"
             RESULT_NOK="Error - Update Kobo"
             check-action "${RESULT_OK}" "${RESULT_NOK}"
@@ -368,7 +370,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
                 DATE_ECHO=$(date +"%Y-%m-%d %r")
                 echo "[ ${DATE_ECHO} ] Force recreate Kobo on ${DNS_FRONTEND}..."
                 
-                $SSH_FRONTEND "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" 
+                $SSH_FRONTEND "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" > /dev/null 2>&1
                 RESULT_OK="Force recreate Kobo Ok"
                 RESULT_NOK="Error - Force recreate Kobo"
                 check-action "${RESULT_OK}" "${RESULT_NOK}"
