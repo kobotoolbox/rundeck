@@ -32,35 +32,35 @@ function check-action {
 case $ENV in
     ocha)
         source /home/ubuntu/${ENV}-config
-        echo "Environment : ${ENV}"
-        echo "AUTO_SCALING_GROUP_NAME : ${AUTO_SCALING_GROUP_NAME}"
-        echo "EC2_REGION : ${EC2_REGION}"
-        echo "INSTANCE_TYPE : ${INSTANCE_TYPE}"
-        echo "SUBNET_ID : ${SUBNET_ID}"
-        echo "KEY_PAIR_NAME : ${KEY_PAIR_NAME}"
-        echo "SECURITY_GROUP_NGINX : ${SECURITY_GROUP_NGINX}"
-        echo "SECURITY_GROUP_SSH : ${SECURITY_GROUP_SSH}"
-        echo "SECURITY_GROUP_SSH : ${SECURITY_GROUP_RUNDECK_SSH}"
-        echo "IAM_ROLE : ${IAM_ROLE}"
-        echo "IAM_ROLE : ${KOBO_EC2_MONITORED_DOMAIN}"
-        echo "KEY_SSH : ${KEY_SSH}"
-        echo "PRIMARY_DNS_FRONTEND : ${PRIMARY_DNS_FRONTEND}"
+        echo "Environment:${ENV}"
+        echo "AUTO_SCALING_GROUP_NAME:${AUTO_SCALING_GROUP_NAME}"
+        echo "EC2_REGION:${EC2_REGION}"
+        echo "INSTANCE_TYPE:${INSTANCE_TYPE}"
+        echo "SUBNET_ID:${SUBNET_ID}"
+        echo "KEY_PAIR_NAME:${KEY_PAIR_NAME}"
+        echo "SECURITY_GROUP_NGINX:${SECURITY_GROUP_NGINX}"
+        echo "SECURITY_GROUP_SSH:${SECURITY_GROUP_SSH}"
+        echo "SECURITY_GROUP_SSH:${SECURITY_GROUP_RUNDECK_SSH}"
+        echo "IAM_ROLE:${IAM_ROLE}"
+        echo "IAM_ROLE:${KOBO_EC2_MONITORED_DOMAIN}"
+        echo "KEY_SSH:${KEY_SSH}"
+        echo "PRIMARY_DNS_FRONTEND:${PRIMARY_DNS_FRONTEND}"
         ;;
     hhi)
         source /home/ubuntu/${ENV}-config
-        echo "Environment : ${ENV}"
-        echo "AUTO_SCALING_GROUP_NAME ${AUTO_SCALING_GROUP_NAME}"
-        echo "EC2_REGION : ${EC2_REGION}"
-        echo "INSTANCE_TYPE : ${INSTANCE_TYPE}"
-        echo "SUBNET_ID : ${SUBNET_ID}"
-        echo "KEY_PAIR_NAME : ${KEY_PAIR_NAME}"
-        echo "SECURITY_GROUP_NGINX : ${SECURITY_GROUP_NGINX}"
-        echo "SECURITY_GROUP_SSH : ${SECURITY_GROUP_SSH}"
-        echo "SECURITY_GROUP_SSH : ${SECURITY_GROUP_RUNDECK_SSH}"
-        echo "IAM_ROLE : ${IAM_ROLE}"
-        echo "IAM_ROLE : ${KOBO_EC2_MONITORED_DOMAIN}"
-        echo "KEY_SSH : ${KEY_SSH}"
-        echo "PRIMARY_DNS_FRONTEND : ${PRIMARY_DNS_FRONTEND}"
+        echo "Environment:${ENV}"
+        echo "AUTO_SCALING_GROUP_NAME:${AUTO_SCALING_GROUP_NAME}"
+        echo "EC2_REGION:${EC2_REGION}"
+        echo "INSTANCE_TYPE:${INSTANCE_TYPE}"
+        echo "SUBNET_ID:${SUBNET_ID}"
+        echo "KEY_PAIR_NAME:${KEY_PAIR_NAME}"
+        echo "SECURITY_GROUP_NGINX:${SECURITY_GROUP_NGINX}"
+        echo "SECURITY_GROUP_SSH:${SECURITY_GROUP_SSH}"
+        echo "SECURITY_GROUP_SSH:${SECURITY_GROUP_RUNDECK_SSH}"
+        echo "IAM_ROLE:${IAM_ROLE}"
+        echo "IAM_ROLE:${KOBO_EC2_MONITORED_DOMAIN}"
+        echo "KEY_SSH:${KEY_SSH}"
+        echo "PRIMARY_DNS_FRONTEND:${PRIMARY_DNS_FRONTEND}"
         ;;
     *)
 esac
@@ -84,7 +84,7 @@ OLD_ID_AMI=$($AWS ec2 describe-images \
     --query 'Images[].ImageId' \
     --output text)
 DATE_ECHO=$(date +"%Y-%m-%d %r")
-echo "[ $DATE_ECHO ] Old ID_AMI : $OLD_ID_AMI"
+echo "[ $DATE_ECHO ] Old ID_AMI:$OLD_ID_AMI"
 
 # Tell AWS to create new EC2 instance using current AMI
 LAUNCH_INSTANCE=$($AWS ec2 run-instances \
@@ -166,24 +166,26 @@ RESULT_OK="APT upgrade Ok"
 RESULT_NOK="Error - APT upgrade"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
 
-$SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}"
-$SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py -cf pull"  
-RESULT_OK="Update Kobo Ok"
-RESULT_NOK="Error - Update Kobo"
-check-action "${RESULT_OK}" "${RESULT_NOK}"
-
 # Update kobo-install and kobo-docker (./run.py --auto-update <kobo-install-tag|stable>)
 DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Update Kobo..."
 
-$SSH "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" 
-RESULT_OK="Force recreate Kobo Ok"
-RESULT_NOK="Error - Force recreate Kobo"
+$SSH "cd ${KOBO_INSTALL_DIR} && COMPOSE_HTTP_TIMEOUT=500 python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}"
+$SSH "cd ${KOBO_INSTALL_DIR} && COMPOSE_HTTP_TIMEOUT=500 python3 ${KOBO_INSTALL_DIR}run.py -cf pull" > /dev/null 2>&1
+RESULT_OK="Update Kobo Ok"
+RESULT_NOK="Error - Update Kobo"
 check-action "${RESULT_OK}" "${RESULT_NOK}"
+
+sleep 30 
 
 # Force recreate Docker frontend
 DATE_ECHO=$(date +"%Y-%m-%d %r")
 echo "[ ${DATE_ECHO} ] Force recreate Kobo..."
+
+$SSH "cd ${KOBO_INSTALL_DIR} && COMPOSE_HTTP_TIMEOUT=500 python3 ${KOBO_INSTALL_DIR}run.py" > /dev/null 2>&1
+RESULT_OK="Force recreate Kobo Ok"
+RESULT_NOK="Error - Force recreate Kobo"
+check-action "${RESULT_OK}" "${RESULT_NOK}"
 
 sleep 30
 
@@ -193,10 +195,10 @@ DOCKER_IMAGE_KC=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_kobocat_1")
 DOCKER_IMAGE_EE=$($SSH "docker inspect -f '{{.Config.Image}}' kobofe_enketo_express_1")
 
 DATE_ECHO=$(date +"%Y-%m-%d %r")
-echo "[ ${DATE_ECHO} ] Docker Image Nginx : ${DOCKER_IMAGE_NGINX}"
-echo "[ ${DATE_ECHO} ] Docker Image Kpi : ${DOCKER_IMAGE_KPI}"
-echo "[ ${DATE_ECHO} ] Docker Image Kobocat : ${DOCKER_IMAGE_KC}"
-echo "[ ${DATE_ECHO} ] Docker Image Enketo : ${DOCKER_IMAGE_EE}"
+echo "[ ${DATE_ECHO} ] Docker Image Nginx:${DOCKER_IMAGE_NGINX}"
+echo "[ ${DATE_ECHO} ] Docker Image Kpi:${DOCKER_IMAGE_KPI}"
+echo "[ ${DATE_ECHO} ] Docker Image Kobocat:${DOCKER_IMAGE_KC}"
+echo "[ ${DATE_ECHO} ] Docker Image Enketo:${DOCKER_IMAGE_EE}"
 
 TEST_DOCKER_NGINX=$($SSH "docker inspect -f '{{.State.Running}}' kobofe_nginx_1" | grep true)
 TEST_DOCKER_KC=$($SSH "docker inspect -f '{{.State.Running}}' kobofe_kobocat_1" | grep true)
@@ -307,10 +309,10 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
 
     if [[ "${TEST_UPDATE_AMI_TAG}" == "latest" ]]; then
         DATE_ECHO=$(date +"%Y-%m-%d %r")
-        echo "[ ${DATE_ECHO} ] Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
+        echo "[ ${DATE_ECHO} ] Apply tag:${TEST_UPDATE_AMI_TAG} on AMI"
     else
         DATE_ECHO=$(date +"%Y-%m-%d %r")
-        echo "[ ${DATE_ECHO} ] Error - Apply tag : ${TEST_UPDATE_AMI_TAG} on AMI"
+        echo "[ ${DATE_ECHO} ] Error - Apply tag:${TEST_UPDATE_AMI_TAG} on AMI"
         exit
     fi
     
@@ -322,7 +324,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
             echo "[ ${DATE_ECHO} ] Update Kobo on frontend primary..."
             
             SSH_FRONTEND_PRIMARY="ssh -o StrictHostKeyChecking=no -i $KEY_SSH ubuntu@${PRIMARY_DNS_FRONTEND}"
-            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}" #> /dev/null 2>&1
+            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}"
             RESULT_OK="Update Kobo Ok"
             RESULT_NOK="Error - Update Kobo"
             check-action "${RESULT_OK}" "${RESULT_NOK}"
@@ -331,7 +333,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
             DATE_ECHO=$(date +"%Y-%m-%d %r")
             echo "[ ${DATE_ECHO} ] Force recreate Kobo on frontend primary..."
             
-            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" #> /dev/null 2>&1
+            $SSH_FRONTEND_PRIMARY "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py" > /dev/null 2>&1
             RESULT_OK="Force recreate Kobo Ok"
             RESULT_NOK="Error - Force recreate Kobo"
             check-action "${RESULT_OK}" "${RESULT_NOK}"
@@ -357,6 +359,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
                 
                 SSH_FRONTEND="ssh -o StrictHostKeyChecking=no -i ${KEY_SSH} ubuntu@${DNS_FRONTEND}"
                 $SSH_FRONTEND "cd ${KOBO_INSTALL_DIR} && python3 ${KOBO_INSTALL_DIR}run.py --auto-update ${KOBO_INSTALL_VERSION}"
+                $SSH_FRONTEND "cd ${KOBO_INSTALL_DIR} && COMPOSE_HTTP_TIMEOUT=500 python3 ${KOBO_INSTALL_DIR}run.py -cf pull" > /dev/null 2>&1
                 RESULT_OK="Update Kobo Ok"
                 RESULT_NOK="Error - Update Kobo"
                 check-action "${RESULT_OK}" "${RESULT_NOK}"
