@@ -8,6 +8,7 @@ ENV=@option.Environment@
 VERSION=@option.Version@
 LAUNCH_CONFIGURATION_NAME="m5-reserved-instances-launch-config-${DATE}"
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install/"
+KOBO_INSTALL_VERSION="$VERSION"
 
 
 echo DATE : $DATE
