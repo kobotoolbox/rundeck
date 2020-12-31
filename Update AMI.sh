@@ -318,7 +318,7 @@ if [[ ${TEST_DOCKER_NGINX} == "true" ]] && [[ ${TEST_DOCKER_KC} == "true" ]] && 
     fi
     
     # Update frontend primary only or all    
-    case $ENV in
+    case $ENV_FRONTEND in
         frontend_primary_only)
             # Update kobo-install and kobo-docker on frontend primary (./run.py --auto-update <kobo-install-tag|stable>)
             DATE_ECHO=$(date +"%Y-%m-%d %r")
