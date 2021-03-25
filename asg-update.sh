@@ -42,6 +42,7 @@ echo "    INSTANCE_TYPE: ${INSTANCE_TYPE}"
 echo "    KEY_PAIR_NAME: ${KEY_PAIR_NAME}"
 echo "    SECURITY_GROUP_NGINX: ${SECURITY_GROUP_NGINX}"
 echo "    SECURITY_GROUP_SSH: ${SECURITY_GROUP_SSH}"
+echo "    SECURITY_GROUP_RUNDECK_SSH: ${SECURITY_GROUP_RUNDECK_SSH}"
 echo "    IAM_ROLE: ${IAM_ROLE}"
 echo "    KEY_SSH: ${KEY_SSH}"
 
@@ -70,7 +71,7 @@ CREATE_LAUNCH_CONFIGURATION=$($AWS autoscaling create-launch-configuration \
     --image-id ${LATEST_AMI_ID} \
     --iam-instance-profile ${IAM_ROLE} \
     --key-name "${KEY_PAIR_NAME}" \
-    --security-groups "${SECURITY_GROUP_NGINX}" "${SECURITY_GROUP_SSH}" \
+    --security-groups "${SECURITY_GROUP_RUNDECK_SSH}" "${SECURITY_GROUP_NGINX}" "${SECURITY_GROUP_SSH}" \
     --instance-type ${INSTANCE_TYPE} \
     --region ${EC2_REGION} \
     --instance-monitoring Enabled=true \
