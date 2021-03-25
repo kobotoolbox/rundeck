@@ -214,15 +214,15 @@ check-action "${TEST_CREATE_IMAGE}"
 
 # Change tag AMI
 echo-with-date "Moving latest version tag to newest AMI..."
-CREATE_TAG_NEW_AMI=$($AWS ec2 create-tags \
+$AWS ec2 create-tags \
     --region ${EC2_REGION} \
     --resources ${NEWEST_AMI_ID} \
-    --tags "Key=version,Value=${LATEST_VERSION_TAG}" "Key=billing,Value=${ENV}")
+    --tags "Key=version,Value=${LATEST_VERSION_TAG}" "Key=billing,Value=${ENV}"
 
-REMOVE_TAG_OLD_AMI=$($AWS ec2 delete-tags \
+$AWS ec2 delete-tags \
   --region ${EC2_REGION} \
   --resources ${OLD_AMI_ID} \
-  --tags "Key=version,Value=${LATEST_VERSION_TAG}")
+  --tags "Key=version,Value=${LATEST_VERSION_TAG}"
 ERROR_CODE=$(echo $?)
 MESSAGE_OK="Tag \`version=${LATEST_VERSION_TAG}\` has been removed from old AMI successfully"
 MESSAGE_ERROR="Tag \`version=${LATEST_VERSION_TAG}\` has not be moved"
