@@ -4,7 +4,6 @@
 AWS="/usr/local/bin/aws"
 DATE=$(date +"%Y%m%d.%H%M%S")
 ENV=@option.ENVIRONMENT@
-DEPLOYMENT_TYPE=@option.DEPLOYMENT_TYPE@
 LAUNCH_CONFIGURATION_NAME="m5-reserved-instances-launch-config-${DATE}"
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
 KOBO_EC2_DIR="/home/ubuntu/kobo-ec2"
@@ -32,20 +31,19 @@ function echo-with-date {
 }
 
 echo-with-date "Environment variables"
-echo "        DATE: ${DATE}"
-echo "        ENV: ${ENV}"
-echo "        DEPLOYMENT_TYPE: ${DEPLOYMENT_TYPE}"
-echo "        KOBO_INSTALL_VERSION: ${KOBO_INSTALL_VERSION}"
-echo "        LAUNCH_CONFIGURATION_NAME: ${LAUNCH_CONFIGURATION_NAME}"
+echo "    DATE: ${DATE}"
+echo "    ENV: ${ENV}"
+echo "    KOBO_INSTALL_VERSION: ${KOBO_INSTALL_VERSION}"
+echo "    LAUNCH_CONFIGURATION_NAME: ${LAUNCH_CONFIGURATION_NAME}"
 source /var/lib/rundeck/kobo/${ENV}.env
-echo "        AUTO_SCALING_GROUP_NAME: ${AUTO_SCALING_GROUP_NAME}"
-echo "        EC2_REGION: ${EC2_REGION}"
-echo "        INSTANCE_TYPE: ${INSTANCE_TYPE}"
-echo "        KEY_PAIR_NAME: ${KEY_PAIR_NAME}"
-echo "        SECURITY_GROUP_NGINX: ${SECURITY_GROUP_NGINX}"
-echo "        SECURITY_GROUP_SSH: ${SECURITY_GROUP_SSH}"
-echo "        IAM_ROLE: ${IAM_ROLE}"
-echo "        KEY_SSH: ${KEY_SSH}"
+echo "    AUTO_SCALING_GROUP_NAME: ${AUTO_SCALING_GROUP_NAME}"
+echo "    EC2_REGION: ${EC2_REGION}"
+echo "    INSTANCE_TYPE: ${INSTANCE_TYPE}"
+echo "    KEY_PAIR_NAME: ${KEY_PAIR_NAME}"
+echo "    SECURITY_GROUP_NGINX: ${SECURITY_GROUP_NGINX}"
+echo "    SECURITY_GROUP_SSH: ${SECURITY_GROUP_SSH}"
+echo "    IAM_ROLE: ${IAM_ROLE}"
+echo "    KEY_SSH: ${KEY_SSH}"
 
 
 # Tests Variables
