@@ -136,12 +136,11 @@ deploy "${PRIMARY_FRONTEND_ID}" "primary front-end" "${PRIMARY_FRONTEND_DNS}"
 if [ -n "${AUTO_SCALING_GROUP_NAME}" ] && [ "${DEPLOY_ALL_AT_ONCE}" == "true" ]; then
     ASG_FRONTENDS=$($AWS ec2 describe-instances \
         --region ${EC2_REGION} \
-        --filters "Name=tag:Name,Values=${ENV}-asg-frontends-TEST" "Name=instance-state-name,Values=running" \
+        --filters "Name=tag:Name,Values=${ENV}-asg-frontends" "Name=instance-state-name,Values=running" \
         --query "Reservations[].Instances[].[InstanceId, PublicDnsName]" \
         --output text)
 
     echo "${ASG_FRONTENDS}" | while read ASG_FRONTEND; do
-        echo "INSTANCE"
         ASG_INSTANCE_ID=$(echo "${ASG_FRONTEND}"|cut -f 1)
         ASG_INSTANCE_DNS=$(echo "${ASG_FRONTEND}"|cut -f 2)
         deploy "${ASG_INSTANCE_ID}" "${ASG_INSTANCE_ID}" "${ASG_INSTANCE_DNS}"
