@@ -39,7 +39,7 @@ function terminate-tmp-instances {
         --query "Reservations[].Instances[].InstanceId" \
         --output text)
     echo-with-date "Removing temporary instances..."
-    #TERMINATE_INSTANCE=$($AWS ec2 terminate-instances --region ${EC2_REGION} --instance-ids $INSTANCE_IDS)
+    TERMINATE_INSTANCE=$($AWS ec2 terminate-instances --region ${EC2_REGION} --instance-ids $INSTANCE_IDS)
     if [[ "$(echo $?)" == "0" ]]; then
         echo-with-date "Termination of temporary instances have succeeded"
     else
