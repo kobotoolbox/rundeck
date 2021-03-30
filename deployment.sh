@@ -133,6 +133,24 @@ fi
 
 deploy "${PRIMARY_FRONTEND_ID}" "primary front-end" "${PRIMARY_FRONTEND_DNS}"
 
+if [ -n "${AUTO_SCALING_GROUP_NAME}" ]; then
+    echo-with-date "Updating \`kobo-install-version\` tag on auto scaling group..."
+    $AWS autoscaling create-or-update-tags \
+      --tags "ResourceId=${AUTO_SCALING_GROUP_NAME},ResourceType=auto-scaling-group,Key=kobo-install-version,Value=${KOBO_INSTALL_VERSION},PropagateAtLaunch=true"
+    TAG_ERROR_CODE=$(echo $?)
+
+    KOBO_INSTALL_VERSION_TAG=$($AWS autoscaling describe-auto-scaling-groups \
+      --auto-scaling-group-names "${AUTO_SCALING_GROUP_NAME}" \
+      --query "AutoScalingGroups[].Tags[?Key==\`kobo-install-version\`]|[].Value" \
+      --output text)
+    DESCRIBE_TAG_ERROR_CODE=$(echo $?)
+    ERROR_CODE=$([[ "$TAG_ERROR_CODE" == "0" ]] && [[ "$DESCRIBE_TAG_ERROR_CODE" == "0" ]] && echo 0 || echo 1)
+    MESSAGE_OK="\`kobo-install-version\` tag has been successfully updated"
+    MESSAGE_ERROR="\`kobo-install-version\` tag update has failed"
+    VALUE=$([[ "$KOBO_INSTALL_VERSION_TAG" == "${$KOBO_INSTALL_VERSION}" ]] && echo 1 || echo 0)
+    check-action "${VALUE}"
+fi
+
 if [ -n "${AUTO_SCALING_GROUP_NAME}" ] && [ "${DEPLOY_ALL_AT_ONCE}" == "true" ]; then
     ASG_FRONTENDS=$($AWS ec2 describe-instances \
         --region ${EC2_REGION} \
