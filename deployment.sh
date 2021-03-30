@@ -7,6 +7,7 @@ DEPLOY_ALL_AT_ONCE=@option.DEPLOY_ALL_AT_ONCE@
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
 KOBO_EC2_DIR="/home/ubuntu/kobo-ec2"
 KOBO_INSTALL_VERSION=@option.KOBO_INSTALL_VERSION@
+KOBO_EC2_VERSION=@option.KOBO_EC2_VERSION@
 LATEST_VERSION_TAG="latest"
 
 function check-action {
@@ -30,11 +31,16 @@ function deploy {
     INSTANCE_DNS="$3"
 
     # Update KOBO_VERSION_INSTALL tag
+
+    echo-with-date "##############################################################"
+    echo-with-date "Deploying \`${KOBO_INSTALL_VERSION}\` to \`${INSTANCE_NAME}\`..."
+    echo-with-date "##############################################################"
+
     echo-with-date "Tagging instance \`${INSTANCE_NAME}\` with new kobo-install version..."
     $AWS ec2 create-tags \
         --region ${EC2_REGION} \
         --resources ${INSTANCE_ID} \
-        --tags "Key=kobo-install-version,Value=${KOBO_INSTALL_VERSION}"
+        --tags "Key=kobo-install-version,Value=${KOBO_INSTALL_VERSION}" "Key=kobo-ec2-version,Value=${KOBO_EC2_VERSION}"
 
     KOBO_INSTALL_VERSION_TAG=$($AWS ec2 describe-tags \
         --region ${EC2_REGION} \
@@ -50,13 +56,29 @@ function deploy {
     # ToDo copy .run.conf to instance, remove kobo-env pull from kobo-ec2 scripts
     SSH="ssh -o StrictHostKeyChecking=no -i $KEY_SSH ubuntu@${INSTANCE_DNS}"
     # Update kobo-docker, kobo-install with kobo-ec2 existing scripts
-    echo-with-date "Updating KoBoToolbox on instance \`${INSTANCE_NAME}̀\`..."
+    echo-with-date "Updating KoBoToolbox on \`${INSTANCE_NAME}\`..."
     $SSH "/bin/bash $KOBO_EC2_DIR/start_env.bash rundeck"
     ERROR_CODE=$(echo $?)
     MESSAGE_OK="KoBoToolbox update has succeeded"
     MESSAGE_ERROR="KoBoToolbox update has failed"
     check-action "True"
 
+    # Wait for 2 minutes maximum KoBoToolbox to be up and running
+    CPT=1
+    MAX_TRIES=12
+    echo-with-date "Waiting for KoboToolbox to be up and running..."
+    while $SSH "/bin/bash ${KOBO_EC2_DIR}/crons/frontend/containers_monitor.bash" | grep 'nothing to do' > /dev/null 2>&1; do
+        if [ "${CPT}" -gt "${MAX_TRIES}" ]; then
+          echo-with-date "ERROR: Something went wrong, KoBoToolbox did not start"
+          terminate-tmp-instances
+          exit 1
+        fi
+        sleep 10
+        CPT=$(( $CPT + 1 ))
+    done
+
+    echo-with-date "KoBoToolbox is up and running on \`${INSTANCE_NAME}\`"
+    echo-with-date "SUCCESS: Deployment has been completed successfully"
 }
 
 function echo-with-date {
@@ -134,9 +156,11 @@ fi
 deploy "${PRIMARY_FRONTEND_ID}" "primary front-end" "${PRIMARY_FRONTEND_DNS}"
 
 if [ -n "${AUTO_SCALING_GROUP_NAME}" ]; then
-    echo-with-date "Updating \`kobo-install-version\` tag on auto scaling group..."
+    echo-with-date "Updating tags on auto scaling group..."
     $AWS autoscaling create-or-update-tags \
-      --tags "ResourceId=${AUTO_SCALING_GROUP_NAME},ResourceType=auto-scaling-group,Key=kobo-install-version,Value=${KOBO_INSTALL_VERSION},PropagateAtLaunch=true"
+        --region "${EC2_REGION}" \
+        --tags "ResourceId=${AUTO_SCALING_GROUP_NAME},ResourceType=auto-scaling-group,Key=kobo-install-version,Value=${KOBO_INSTALL_VERSION},PropagateAtLaunch=true" \
+               "ResourceId=${AUTO_SCALING_GROUP_NAME},ResourceType=auto-scaling-group,Key=kobo-ec2-version,Value=${KOBO_EC2_VERSION},PropagateAtLaunch=true"
     TAG_ERROR_CODE=$(echo $?)
 
     KOBO_INSTALL_VERSION_TAG=$($AWS autoscaling describe-auto-scaling-groups \
@@ -145,9 +169,9 @@ if [ -n "${AUTO_SCALING_GROUP_NAME}" ]; then
       --output text)
     DESCRIBE_TAG_ERROR_CODE=$(echo $?)
     ERROR_CODE=$([[ "$TAG_ERROR_CODE" == "0" ]] && [[ "$DESCRIBE_TAG_ERROR_CODE" == "0" ]] && echo 0 || echo 1)
-    MESSAGE_OK="\`kobo-install-version\` tag has been successfully updated"
-    MESSAGE_ERROR="\`kobo-install-version\` tag update has failed"
-    VALUE=$([[ "$KOBO_INSTALL_VERSION_TAG" == "${$KOBO_INSTALL_VERSION}" ]] && echo 1 || echo 0)
+    MESSAGE_OK="Tags have been successfully updated"
+    MESSAGE_ERROR="Tags update has failed"
+    VALUE=$([[ "$KOBO_INSTALL_VERSION_TAG" == "${KOBO_INSTALL_VERSION}" ]] && echo 1 || echo 0)
     check-action "${VALUE}"
 fi
 
