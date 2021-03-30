@@ -8,6 +8,7 @@ LAUNCH_CONFIGURATION_NAME="m5-reserved-instances-launch-config-${DATE}"
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
 KOBO_EC2_DIR="/home/ubuntu/kobo-ec2"
 KOBO_INSTALL_VERSION=@option.KOBO_INSTALL_VERSION@
+KOBO_EC2_VERSION=@option.KOBO_EC2_VERSION@
 LATEST_VERSION_TAG="latest"
 
 function check-action {
@@ -87,8 +88,8 @@ check-action "${OLD_AMI_ID}"
 echo-with-date "Launching new EC2 instance..."
 LAUNCH_INSTANCE=$($AWS ec2 run-instances \
         --image-id ${OLD_AMI_ID} \
-        --instance-type ${INSTANCE_TYPE} \
-        --region ${EC2_REGION} \
+        --instance-type "t3a.medium" \
+        --region "${EC2_REGION}" \
         --count 1 \
         --subnet-id "${SUBNET_ID}" \
         --key-name "${KEY_PAIR_NAME}" \
@@ -97,7 +98,15 @@ LAUNCH_INSTANCE=$($AWS ec2 run-instances \
         --block-device-mappings "DeviceName=/dev/sda1,Ebs={VolumeSize=60}" \
         --ebs-optimized \
         --iam-instance-profile Name="${IAM_ROLE}" \
-        --tag-specifications "ResourceType=instance,Tags=[{Key=billing,Value=${ENV}},{Key=kobo-ec2-environment-type,Value=frontend},{Key=kobo-ec2-version,Value=rundeck-support},{Key=kobo-ec2-monitored-domain,Value=${KOBO_EC2_MONITORED_DOMAIN}},{Key=kobo-env-branch,Value=${ENV}},{Key=kobo-ec2-use-swap,Value=0},{Key=kobo-install-version,Value=${KOBO_INSTALL_VERSION}},{Key=Name,Value=rundeck-tmp-ami}]")
+        --tag-specifications "ResourceType=instance,Tags=[
+                                {Key=billing,Value=${ENV}},
+                                {Key=kobo-ec2-environment-type,Value=frontend},
+                                {Key=kobo-ec2-version,Value=${KOBO_EC2_VERSION}},
+                                {Key=kobo-ec2-monitored-domain,Value=${KOBO_EC2_MONITORED_DOMAIN}},
+                                {Key=kobo-server-environment,Value=${ENV}},
+                                {Key=kobo-ec2-use-swap,Value=0},
+                                {Key=kobo-install-version,Value=${KOBO_INSTALL_VERSION}},
+                                {Key=Name,Value=rundeck-tmp-ami}]")
 ERROR_CODE=$(echo $?)
 MESSAGE_OK="Instance launching has succeeded"
 MESSAGE_ERROR="Instance launching has failed"
@@ -117,7 +126,11 @@ MESSAGE_ERROR="Could not retrieve new instance ID"
 check-action "${INSTANCE_ID}"
 
 # Wait for instance creation
-while [ "$($AWS ec2 describe-instances --region ${EC2_REGION} --instance-ids ${INSTANCE_ID} --query 'Reservations[].Instances[].State.Name' --output text)" != "running" ]; do
+while [ "$($AWS ec2 describe-instances \
+          --region ${EC2_REGION} \
+          --instance-ids ${INSTANCE_ID} \
+          --query 'Reservations[].Instances[].State.Name' \
+          --output text)" != "running" ]; do
     echo-with-date "Instance creation in progress..."
     sleep 10
 done
@@ -145,7 +158,7 @@ MESSAGE_OK="SSH connection to instance has succeeded"
 MESSAGE_ERROR="SSH connection to instance failed"
 check-action "True"
 
- Use apt-get, etc. to update operating system
+# Use apt-get, etc. to update operating system
 echo-with-date "Updating APT sources..."
 $SSH "sudo apt update" > /dev/null 2>&1
 ERROR_CODE=$(echo $?)
@@ -196,7 +209,10 @@ NEWEST_AMI_ID=$($AWS ec2 create-image \
     --output text)
 
 # Wait AMI creation
-while [ "$($AWS ec2 describe-images --region ${EC2_REGION} --image-ids ${NEWEST_AMI_ID} --query Images[].State --output text)" = "pending" ]; do
+while [ "$($AWS ec2 describe-images \
+            --region ${EC2_REGION} \
+            --image-ids ${NEWEST_AMI_ID} \
+            --query Images[].State --output text)" = "pending" ]; do
     echo-with-date "AMI (${NEWEST_AMI_ID}) creation is in progress..."
     sleep 30
 done
