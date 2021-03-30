@@ -8,6 +8,7 @@ LAUNCH_CONFIGURATION_NAME="m5-reserved-instances-launch-config-${DATE}"
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
 KOBO_EC2_DIR="/home/ubuntu/kobo-ec2"
 KOBO_INSTALL_VERSION=@option.KOBO_INSTALL_VERSION@
+KOBO_EC2_VERSION=@option.KOBO_EC2_VERSION@
 LATEST_VERSION_TAG="latest"
 
 function check-action {
@@ -56,7 +57,7 @@ fi
 # Find latest AMI id - output : ami-039ef8fda247219c5
 echo-with-date "Retrieving current latest AMI id..."
 LATEST_AMI_ID=$($AWS ec2 describe-images \
-    --region ${EC2_REGION} \
+    --region "${EC2_REGION}" \
     --filters "Name=tag:version,Values=${LATEST_VERSION_TAG}" \
     --query "Images[].ImageId" \
     --output text)
@@ -73,13 +74,13 @@ CREATE_LAUNCH_CONFIGURATION=$($AWS autoscaling create-launch-configuration \
     --key-name "${KEY_PAIR_NAME}" \
     --security-groups "${SECURITY_GROUP_RUNDECK_SSH}" "${SECURITY_GROUP_NGINX}" "${SECURITY_GROUP_SSH}" \
     --instance-type ${INSTANCE_TYPE} \
-    --region ${EC2_REGION} \
+    --region "${EC2_REGION}" \
     --instance-monitoring Enabled=true \
     --ebs-optimized \
     --block-device-mappings 'DeviceName=/dev/sda1,Ebs={VolumeSize=60,VolumeType=gp2,DeleteOnTermination=true,Encrypted=false}')
 
 TEST_LAUNCH_CONFIGURATION=$($AWS autoscaling describe-launch-configurations \
-    --region ${EC2_REGION} \
+    --region "${EC2_REGION}" \
     --launch-configuration-name ${LAUNCH_CONFIGURATION_NAME} \
     --query 'LaunchConfigurations[].LaunchConfigurationName[]' \
     --output text)
@@ -92,12 +93,12 @@ check-action "${VALUE}"
 
 # Tell ASG to use new Launch Configuration
 $AWS autoscaling update-auto-scaling-group \
-    --region ${EC2_REGION} \
+    --region "${EC2_REGION}" \
     --auto-scaling-group-name ${AUTO_SCALING_GROUP_NAME} \
     --launch-configuration-name ${LAUNCH_CONFIGURATION_NAME}
 
 TEST_UPDATE_ASG=$($AWS autoscaling describe-auto-scaling-groups \
-    --region ${EC2_REGION} \
+    --region "${EC2_REGION}" \
     --auto-scaling-group-name ${AUTO_SCALING_GROUP_NAME} \
     --query 'AutoScalingGroups[].LaunchConfigurationName[]'\
     --output text)
@@ -106,6 +107,24 @@ ERROR_CODE=$(echo $?)
 MESSAGE_OK="Auto Scale Group update has succeeded"
 MESSAGE_ERROR="Auto Scale Group update has failed"
 VALUE=$([[ "$TEST_UPDATE_ASG" == "$CREATE_LAUNCH_CONFIGURATION" ]] && echo 1 || echo 0)
+check-action "${VALUE}"
+
+echo-with-date "Updating tags on auto scaling group..."
+$AWS autoscaling create-or-update-tags \
+    --region "${EC2_REGION}" \
+    --tags "ResourceId=${AUTO_SCALING_GROUP_NAME},ResourceType=auto-scaling-group,Key=kobo-install-version,Value=${KOBO_INSTALL_VERSION},PropagateAtLaunch=true" \
+           "ResourceId=${AUTO_SCALING_GROUP_NAME},ResourceType=auto-scaling-group,Key=kobo-ec2-version,Value=${KOBO_EC2_VERSION},PropagateAtLaunch=true"
+TAG_ERROR_CODE=$(echo $?)
+
+KOBO_INSTALL_VERSION_TAG=$($AWS autoscaling describe-auto-scaling-groups \
+  --auto-scaling-group-names "${AUTO_SCALING_GROUP_NAME}" \
+  --query "AutoScalingGroups[].Tags[?Key==\`kobo-install-version\`]|[].Value" \
+  --output text)
+DESCRIBE_TAG_ERROR_CODE=$(echo $?)
+ERROR_CODE=$([[ "$TAG_ERROR_CODE" == "0" ]] && [[ "$DESCRIBE_TAG_ERROR_CODE" == "0" ]] && echo 0 || echo 1)
+MESSAGE_OK="Tags have been successfully updated"
+MESSAGE_ERROR="Tags update has failed"
+VALUE=$([[ "$KOBO_INSTALL_VERSION_TAG" == "${KOBO_INSTALL_VERSION}" ]] && echo 1 || echo 0)
 check-action "${VALUE}"
 
 # ToDo clean up old launch configurations
