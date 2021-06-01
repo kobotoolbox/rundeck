@@ -9,6 +9,7 @@ KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
 KOBO_EC2_DIR="/home/ubuntu/kobo-ec2"
 KOBO_INSTALL_VERSION=@option.KOBO_INSTALL_VERSION@
 KOBO_EC2_VERSION=@option.KOBO_EC2_VERSION@
+KOBO_ENV_CONF=@file.KOBO_ENV_CONF@
 LATEST_VERSION_TAG="latest"
 
 function check-action {
@@ -174,7 +175,12 @@ MESSAGE_OK="APT upgrade has succeeded"
 MESSAGE_ERROR="APT upgrade has failed"
 check-action "True"
 
-# ToDo copy .run.conf to instance, remove kobo-env pull from kobo-ec2 scripts
+if [ "$KOBO_ENV_CONF" != "" ]; then
+    echo-with-date "New configuration file detected! Apply it"
+    scp -o StrictHostKeyChecking=no -i $KEY_SSH "${KOBO_ENV_CONF}" "ubuntu@${PUBLIC_DNS_INSTANCE}:${KOBO_INSTALL_DIR}/.run.conf"
+else
+    echo-with-date "No configure file provided! Keep current one"
+fi
 
 # Update kobo-docker, kobo-install with kobo-ec2 existing scripts
 echo-with-date "Updating KoBoToolbox on AMI..."
