@@ -8,6 +8,7 @@ KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
 KOBO_EC2_DIR="/home/ubuntu/kobo-ec2"
 KOBO_INSTALL_VERSION=@option.KOBO_INSTALL_VERSION@
 KOBO_EC2_VERSION=@option.KOBO_EC2_VERSION@
+KOBO_ENV_CONF=@file.KOBO_ENV_CONF@
 LATEST_VERSION_TAG="latest"
 
 function check-action {
@@ -56,6 +57,14 @@ function deploy {
     # ToDo copy .run.conf to instance, remove kobo-env pull from kobo-ec2 scripts
     SSH="ssh -o StrictHostKeyChecking=no -i $KEY_SSH ubuntu@${INSTANCE_DNS}"
     # Update kobo-docker, kobo-install with kobo-ec2 existing scripts
+
+    if [ "$KOBO_ENV_CONF" != "" ]; then
+        echo-with-date "New configuration file detected! Apply it"
+        scp -o StrictHostKeyChecking=no -i $KEY_SSH "${KOBO_ENV_CONF}" "ubuntu@${INSTANCE_DNS}:${KOBO_INSTALL_DIR}/.run.conf"
+    else
+        echo-with-date "No configure file provided! Keep current one"
+    fi
+
     echo-with-date "Updating KoBoToolbox on \`${INSTANCE_NAME}\`..."
     $SSH "/bin/bash $KOBO_EC2_DIR/start_env.bash rundeck"
     ERROR_CODE=$(echo $?)
@@ -102,6 +111,11 @@ echo "    PRIMARY_FRONTEND_ID: ${PRIMARY_FRONTEND_ID}"
 if [[ ! -n "$ENV" || ! -n "$AUTO_SCALING_GROUP_NAME" || ! -n "$KOBO_INSTALL_VERSION" || ! -n "$EC2_REGION" || ! -n "$KEY_PAIR_NAME" || ! -n "$IAM_ROLE" ]]; then
     echo-with-date "Arguments missing"
     exit 1
+fi
+
+# Reset Auto scaling group name to empty string when there is no one
+if [ "$AUTO_SCALING_GROUP_NAME" == "null" ]; then
+    AUTO_SCALING_GROUP_NAME=""
 fi
 
 # Get public IP of new instance
