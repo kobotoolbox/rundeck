@@ -8,6 +8,7 @@ KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
 KOBO_EC2_DIR="/home/ubuntu/kobo-ec2"
 KOBO_INSTALL_VERSION=@option.KOBO_INSTALL_VERSION@
 KOBO_EC2_VERSION=@option.KOBO_EC2_VERSION@
+KOBO_FORCE_DEPLOYMENT=@option.KOBO_FORCE_DEPLOYMENT@
 KOBO_ENV_CONF=@file.KOBO_ENV_CONF@
 LATEST_VERSION_TAG="latest"
 
@@ -79,7 +80,6 @@ function deploy {
     while $SSH "/bin/bash ${KOBO_EC2_DIR}/crons/frontend/containers_monitor.bash" | grep 'nothing to do' > /dev/null 2>&1; do
         if [ "${CPT}" -gt "${MAX_TRIES}" ]; then
           echo-with-date "ERROR: Something went wrong, KoBoToolbox did not start"
-          terminate-tmp-instances
           exit 1
         fi
         sleep 10
@@ -196,6 +196,9 @@ if [ -n "${AUTO_SCALING_GROUP_NAME}" ] && [ "${DEPLOY_ALL_AT_ONCE}" == "true" ];
         --query "Reservations[].Instances[].[InstanceId, PublicDnsName]" \
         --output text)
 
+    echo-with-date "Found these ASG instances:"
+    echo "${ASG_FRONTENDS}"
+
     echo "${ASG_FRONTENDS}" | while read ASG_FRONTEND; do
         ASG_INSTANCE_ID=$(echo "${ASG_FRONTEND}"|cut -f 1)
         ASG_INSTANCE_DNS=$(echo "${ASG_FRONTEND}"|cut -f 2)
@@ -221,3 +224,5 @@ if [ -n "${AUTO_SCALING_GROUP_NAME}" ] && [ "${DEPLOY_ALL_AT_ONCE}" != "true" ];
     VALUE=$([[ "$ASG_CAPACITY" == "${ASG_MIN_CAPACITY}${ASG_MAX_CAPACITY}${ASG_DESIRED_CAPACITY}" ]] && echo 1 || echo 0)
     check-action "${VALUE}"
 fi
+
+echo-with-date "All front-end instances have been updated"
