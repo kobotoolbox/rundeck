@@ -161,7 +161,7 @@ check-action "True"
 
 # Use apt-get, etc. to update operating system
 echo-with-date "Updating APT sources..."
-$SSH "sudo apt-get -y update"
+$SSH "sudo DEBIAN_FRONTEND=noninteractive apt-get -y update"
 ERROR_CODE=$(echo $?)
 MESSAGE_OK="APT update has succeeded"
 MESSAGE_ERROR="APT update has failed"
@@ -169,7 +169,7 @@ check-action "True"
 
 # Use apt-get, etc. to update operating system
 echo-with-date "Upgrading APT packages..."
-$SSH "sudo apt-get -y upgrade"
+$SSH "sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade"
 ERROR_CODE=$(echo $?)
 MESSAGE_OK="APT upgrade has succeeded"
 MESSAGE_ERROR="APT upgrade has failed"
