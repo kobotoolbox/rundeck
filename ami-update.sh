@@ -161,7 +161,7 @@ check-action "True"
 
 # Use apt-get, etc. to update operating system
 echo-with-date "Updating APT sources..."
-$SSH "sudo apt update" > /dev/null 2>&1
+$SSH "sudo DEBIAN_FRONTEND=noninteractive apt-get -y update"
 ERROR_CODE=$(echo $?)
 MESSAGE_OK="APT update has succeeded"
 MESSAGE_ERROR="APT update has failed"
@@ -169,7 +169,7 @@ check-action "True"
 
 # Use apt-get, etc. to update operating system
 echo-with-date "Upgrading APT packages..."
-$SSH "sudo apt upgrade --yes" > /dev/null 2>&1
+$SSH "sudo DEBIAN_FRONTEND=noninteractive apt-get -y upgrade"
 ERROR_CODE=$(echo $?)
 MESSAGE_OK="APT upgrade has succeeded"
 MESSAGE_ERROR="APT upgrade has failed"
@@ -184,6 +184,7 @@ fi
 
 # Update kobo-docker, kobo-install with kobo-ec2 existing scripts
 echo-with-date "Updating KoBoToolbox on AMI..."
+$SSH "cd $KOBO_INSTALL_DIR; git fetch --tags"
 $SSH "/bin/bash $KOBO_EC2_DIR/start_env.bash rundeck"
 ERROR_CODE=$(echo $?)
 MESSAGE_OK="KoBoToolbox update has succeeded"
