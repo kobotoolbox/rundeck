@@ -6,6 +6,7 @@ DATE=$(date +"%Y%m%d.%H%M%S")
 ENV=@option.ENVIRONMENT@
 LAUNCH_CONFIGURATION_NAME="m5-reserved-instances-launch-config-${DATE}"
 KOBO_INSTALL_DIR="/home/ubuntu/kobo-install"
+KOBO_DOCKER_DIR="/home/ubuntu/kobo-docker"
 KOBO_EC2_DIR="/home/ubuntu/kobo-ec2"
 KOBO_INSTALL_VERSION=@option.KOBO_INSTALL_VERSION@
 KOBO_EC2_VERSION=@option.KOBO_EC2_VERSION@
@@ -185,6 +186,7 @@ fi
 # Update kobo-docker, kobo-install with kobo-ec2 existing scripts
 echo-with-date "Updating KoBoToolbox on AMI..."
 $SSH "cd $KOBO_INSTALL_DIR; git fetch --tags"
+$SSH "cd $KOBO_DOCKER_DIR; git fetch --tags"
 $SSH "/bin/bash $KOBO_EC2_DIR/start_env.bash rundeck"
 ERROR_CODE=$(echo $?)
 MESSAGE_OK="KoBoToolbox update has succeeded"
