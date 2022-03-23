@@ -207,7 +207,10 @@ while $SSH "/bin/bash ${KOBO_EC2_DIR}/crons/frontend/containers_monitor.bash" | 
     CPT=$(( $CPT + 1 ))
 done
 
-echo-with-date "Docker containers are up and running..."
+echo-with-date "Docker containers are up and running."
+echo-with-date "Pruning unused Docker resources..."
+docker system prune -af
+echo-with-date "Pruning complete!"
 
 #AWS
 NEWEST_AMI_ID=$($AWS ec2 create-image \
