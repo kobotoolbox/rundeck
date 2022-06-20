@@ -209,7 +209,7 @@ done
 
 echo-with-date "Docker containers are up and running."
 echo-with-date "Pruning unused Docker resources..."
-docker system prune -af
+$SSH "/usr/bin/docker system prune -af"
 echo-with-date "Pruning complete!"
 
 #AWS
